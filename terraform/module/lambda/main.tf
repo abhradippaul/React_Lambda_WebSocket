@@ -16,6 +16,18 @@ data "archive_file" "sendmessage_handler_zipped_file" {
   output_path = "${path.module}/zipped-functions/sendMessage_handler.zip"
 }
 
+data "aws_iam_policy_document" "lambda_log_policy_document" {
+  statement {
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+    effect    = "Allow"
+    resources = ["arn:aws:logs:*:*:*"]
+  }
+}
+
 data "aws_iam_policy_document" "assume_policy_document" {
   statement {
     principals {
@@ -59,6 +71,12 @@ data "aws_iam_policy_document" "sendmessage_handler_policy_document" {
   }
 }
 
+resource "aws_iam_policy" "lambda_log_policy" {
+  name   = "lambda_log_policy"
+  path   = "/"
+  policy = data.aws_iam_policy_document.lambda_log_policy_document.json
+}
+
 resource "aws_iam_policy" "dynamodb_handler_policy" {
   policy = data.aws_iam_policy_document.dynamodb_handler_policy_document.json
   name   = "dynamodb_handler_policy"
@@ -77,6 +95,11 @@ resource "aws_iam_role_policy_attachment" "role_handler" {
 resource "aws_iam_role_policy_attachment" "dynamodb_connect_handler" {
   role       = aws_iam_role.role_handler.name
   policy_arn = aws_iam_policy.dynamodb_handler_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_log_policy_attachment" {
+  role       = aws_iam_role.role_handler.name
+  policy_arn = aws_iam_policy.lambda_log_policy.arn
 }
 
 resource "aws_lambda_function" "connect_handler" {
