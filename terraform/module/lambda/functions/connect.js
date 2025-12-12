@@ -2,6 +2,7 @@ const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
 
 exports.handler = async function (event) {
+  console.log(event);
   const client = new DynamoDBClient({});
   const docClient = DynamoDBDocumentClient.from(client);
   const command = new PutCommand({

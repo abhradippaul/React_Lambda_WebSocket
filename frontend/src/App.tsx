@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 
 interface Message {
   id: string;
@@ -14,7 +14,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
 
-  const formatTime = (ts: string) => {
+  const formatTime = (ts: number) => {
     const d = new Date(ts);
     const hh = String(d.getHours()).padStart(2, "0");
     const mm = String(d.getMinutes()).padStart(2, "0");
@@ -51,6 +51,12 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    return () => {};
+  }, []);
+
+  const nameList = ["User1", "User2", "User3", "User4"];
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-zinc-100 p-4 font-thin">
       {showNamePopup ? (
@@ -81,69 +87,86 @@ function App() {
           </div>
         </div>
       ) : (
-        <div className="w-full max-w-2xl h-[90vh] bg-white rounded-xl shadow-md flex flex-col overflow-hidden">
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200">
-            <div className="size-10 rounded-full bg-[#075E54] flex items-center justify-center text-white font-semibold">
-              R
+        <div className="w-full max-w-2xl h-[90vh] flex">
+          <div className="h-full w-[10vw] max-[100px] bg-white rounded-md shadow-md flex flex-col">
+            <div className="w-full h-[60px] flex items-center justify-center">
+              <h1 className="text-green-400 font-semibold">Friends</h1>
             </div>
-            <div className="flex-1">
-              <div className="text-sm font-medium text-[#303030]">
-                Realtime group chat
-              </div>
-              <div className="text-xs text-green-500">Someone is typing...</div>
-            </div>
-            <div className="text-sm text-gray-500">
-              Signed in as
-              <span className="font-medium text-[#303030] capitalize">
-                {userName}
-              </span>
+            <div className="flex items-center justify-around flex-col overflow-y-auto flex-1">
+              {nameList.map((e) => (
+                <span>{e}</span>
+              ))}
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-zinc-100 flex flex-col">
-            {messages.map((m) => {
-              const mine = m.sender === userName;
-              return (
-                <div
-                  key={m.id}
-                  className={`flex ${mine ? "justify-end" : "justify-start"}`}
-                >
+
+          <div className="size-full bg-white rounded-xl shadow-md flex flex-col overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200">
+              <div className="size-10 rounded-full bg-[#075E54] flex items-center justify-center text-white font-semibold">
+                R
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-medium text-[#303030]">
+                  Realtime group chat
+                </div>
+                <div className="text-xs text-green-500">
+                  Someone is typing...
+                </div>
+              </div>
+              <div className="text-sm text-gray-500">
+                Signed in as
+                <span className="ml-1 font-medium text-[#303030] capitalize">
+                  {userName}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-zinc-100 flex flex-col">
+              {messages.map((m) => {
+                const mine = m.sender === userName;
+                return (
                   <div
-                    className={`max-w-[70%] p-3 my-2 rounded-[10px] text-sm leading-5 shadow-sm ${
-                      mine
-                        ? "bg-[#DCF8C6] text-[#303030] rounded-br-2xl"
-                        : "bg-white text-[#303030] rounded-bl-2xl"
-                    }`}
+                    key={m.id}
+                    className={`flex ${mine ? "justify-end" : "justify-start"}`}
                   >
-                    <div className="wrap-break-word whitespace-pre-wrap">
-                      {m.text}
-                    </div>
-                    <div className="flex justify-between items-center mt-1 gap-10">
-                      <div className="text-[11px] font-bold">{m.sender}</div>
-                      <div className="text-[11px] text-gray-500 text-right">
-                        {formatTime(m.ts)}
+                    <div
+                      className={`max-w-[70%] p-3 my-2 rounded-[10px] text-sm leading-5 shadow-sm ${
+                        mine
+                          ? "bg-[#DCF8C6] text-[#303030] rounded-br-2xl"
+                          : "bg-white text-[#303030] rounded-bl-2xl"
+                      }`}
+                    >
+                      <div className="wrap-break-word whitespace-pre-wrap">
+                        {m.text}
+                      </div>
+                      <div className="flex justify-between items-center mt-1 gap-10">
+                        <div className="text-[11px] font-bold">{m.sender}</div>
+                        <div className="text-[11px] text-gray-500 text-right">
+                          {formatTime(Number(m.ts))}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="px-4 py-3 border-t border-gray-200 bg-white">
-            <div className="flex items-center justify-between gap-4 border border-gray-200 rounded-full">
-              <textarea
-                rows={1}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type a message..."
-                className="w-full resize-none p-4 text-sm outline-none"
-              />
-              <button
-                onClick={sendMessage}
-                className="bg-green-500 text-white px-4 py-3 mr-2 rounded-full text-sm font-medium cursor-pointer"
-              >
-                Send
-              </button>
+                );
+              })}
+            </div>
+
+            <div className="px-4 py-3 border-t border-gray-200 bg-white">
+              <div className="flex items-center justify-between gap-4 border border-gray-200 rounded-full">
+                <textarea
+                  rows={1}
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Type a message..."
+                  className="w-full resize-none p-4 text-sm outline-none"
+                />
+                <button
+                  onClick={sendMessage}
+                  className="bg-green-500 text-white px-4 py-3 mr-2 rounded-full text-sm font-medium cursor-pointer"
+                >
+                  Send
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -1,10 +1,11 @@
+# Create policy document
 data "aws_iam_policy_document" "api_gateway_lambda_policy_document" {
   statement {
     actions = [
       "lambda:InvokeFunction",
     ]
     effect    = "Allow"
-    resources = [aws_lambda_function.ws_messenger_lambda.arn]
+    resources = ["*"]
   }
 }
 
@@ -18,7 +19,8 @@ data "aws_iam_policy_document" "api_gateway_assume_policy_document" {
       identifiers = ["apigateway.amazonaws.com"]
     }
     effect    = "Allow"
-    resources = [aws_lambda_function.ws_messenger_lambda.arn]
+    resources = ["*"]
+
   }
 }
 
