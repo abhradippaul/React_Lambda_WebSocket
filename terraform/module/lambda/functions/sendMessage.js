@@ -2,7 +2,6 @@ const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
 const {
   DynamoDBDocumentClient,
   ScanCommand,
-  DeleteCommand,
 } = require("@aws-sdk/lib-dynamodb");
 const {
   ApiGatewayManagementApiClient,
@@ -29,6 +28,8 @@ const sendToMany = (items, message, senderConnectionId, callbackAPI) => {
   });
 };
 
+const sendToOne = (items, message, senderConnectionId, callbackAPI) => {};
+
 exports.handler = async function (event) {
   const ddbcommand = new ScanCommand({
     TableName: process.env.TABLE_NAME,
@@ -37,26 +38,6 @@ exports.handler = async function (event) {
   let connections;
   try {
     connections = await docClient.send(ddbcommand);
-  } catch (err) {
-    console.log(err);
-    return {
-      statusCode: 500,
-    };
-  }
-
-  const name = connections.Items.find(
-    ({ connectionId }) => connectionId === event.requestContext.connectionId
-  ).name;
-
-  const command = new DeleteCommand({
-    TableName: process.env.TABLE_NAME,
-    Key: {
-      connectionId: event.requestContext.connectionId,
-    },
-  });
-
-  try {
-    await docClient.send(command);
   } catch (err) {
     console.log(err);
     return {
@@ -73,12 +54,30 @@ exports.handler = async function (event) {
       event.requestContext.stage,
   });
 
-  const sendMessages = sendToMany(
+  const message = JSON.parse(event.body).message;
+  let sendMessages;
+
+  sendMessages = sendToMany(
     connections.Items,
-    `${name} has left the chat`,
+    message,
     event.requestContext.connectionId,
     callbackAPI
   );
+
+  // const sendMessages = connections.Items.map(async ({ connectionId }) => {
+  //   if (connectionId !== event.requestContext.connectionId) {
+  //     try {
+  //       await callbackAPI.send(
+  //         new PostToConnectionCommand({
+  //           ConnectionId: connectionId,
+  //           Data: message,
+  //         })
+  //       );
+  //     } catch (e) {
+  //       console.log(e);
+  //     }
+  //   }
+  // });
 
   try {
     await Promise.all(sendMessages);
@@ -89,7 +88,5 @@ exports.handler = async function (event) {
     };
   }
 
-  return {
-    statusCode: 200,
-  };
+  return { statusCode: 200 };
 };

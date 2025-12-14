@@ -14,3 +14,7 @@ variable "dynamodb_name" {
 variable "env" {
   type = string
 }
+
+variable "apigateway_id" {
+  type = string
+}

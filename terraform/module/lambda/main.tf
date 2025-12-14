@@ -13,8 +13,8 @@ data "archive_file" "disconnect_handler_zipped_file" {
 
 data "archive_file" "sendmessage_handler_zipped_file" {
   type        = "zip"
-  source_file = "${path.module}/functions/sendMessage_handler.js"
-  output_path = "${path.module}/zipped-functions/sendMessage_handler.zip"
+  source_file = "${path.module}/functions/sendMessage.js"
+  output_path = "${path.module}/zipped-functions/sendMessage.zip"
 }
 
 # Create policy document for lambda
@@ -31,22 +31,15 @@ data "aws_iam_policy_document" "assume_policy_document" {
   }
 }
 
-data "aws_iam_policy_document" "connect_disconnect_handler_policy_document" {
+data "aws_iam_policy_document" "lambda_handler_policy_document" {
   statement {
     actions = [
       "dynamodb:BatchWriteItem",
       "dynamodb:PutItem",
       "dynamodb:UpdateItem",
       "dynamodb:DeleteItem",
-      "dynamodb:DescribeTable"
-    ]
-    resources = [var.dynamodb_arn]
-  }
-}
-
-data "aws_iam_policy_document" "message_handler_policy_document" {
-  statement {
-    actions = [
+      "dynamodb:DescribeTable",
+      "dynamodb:BatchDeleteItem",
       "dynamodb:BatchGetItem",
       "dynamodb:GetRecords",
       "dynamodb:GetShardIterator",
@@ -55,54 +48,77 @@ data "aws_iam_policy_document" "message_handler_policy_document" {
       "dynamodb:Scan",
       "dynamodb:ConditionCheckItem",
       "dynamodb:DescribeTable"
-
     ]
     resources = [var.dynamodb_arn]
   }
 }
 
-# Create Policy for lambda
-resource "aws_iam_policy" "message_handler_policy" {
-  policy = data.aws_iam_policy_document.message_handler_policy_document.json
-  name   = "message_handler_policy"
+data "aws_iam_policy_document" "apigateway_policy_document" {
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "execute-api:ManageConnections"
+    ]
+
+    resources = [
+      "arn:aws:execute-api:ap-south-1:739275445912:${var.apigateway_id}/production/POST/@connections/*"
+    ]
+  }
 }
 
-resource "aws_iam_policy" "connect_disconnect_handler_policy" {
-  policy = data.aws_iam_policy_document.connect_disconnect_handler_policy_document.json
-  name   = "connect_disconnect_handler_policy"
+
+# data "aws_caller_identity" "current" {
+
+# }
+
+# data "aws_iam_policy_document" "execute_api_message_handler_policy_document" {
+#   statement {
+#     actions = [
+#       "execute-api:ManageConnections"
+#     ]
+#     resources = ["arn:aws:execute-api:ap-south-1:${data.aws_caller_identity.current.account_id}:pbssx5s6je/production/POST/@connections/*"]
+#   }
+# }
+
+# Create Policy for lambda
+resource "aws_iam_policy" "lambda_handler_policy" {
+  policy = data.aws_iam_policy_document.lambda_handler_policy_document.json
+  name   = "lambda_handler_policy"
+}
+
+resource "aws_iam_policy" "execute_api_message_handler_policy" {
+  policy = data.aws_iam_policy_document.apigateway_policy_document.json
+  name   = "execute_api_message_handler_policy"
 }
 
 # Create role for lambda
-resource "aws_iam_role" "connect_disconnect_role_handler" {
+resource "aws_iam_role" "lambda_role_handler" {
   assume_role_policy = data.aws_iam_policy_document.assume_policy_document.json
-  name               = "connect_disconnect_role_handler"
-}
-
-resource "aws_iam_role" "message_role_handler" {
-  assume_role_policy = data.aws_iam_policy_document.assume_policy_document.json
-  name               = "message_role_handler"
+  name               = "lambda_role_handler"
 }
 
 # Create role attachment with policy in lambda
 resource "aws_iam_role_policy_attachment" "lambda_execution_policy_attachment" {
-  for_each = toset([
-    aws_iam_role.connect_disconnect_role_handler.name,
-    aws_iam_role.message_role_handler.name,
-  ])
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-  role       = each.value
+  role       = aws_iam_role.lambda_role_handler.name
 }
 
-resource "aws_iam_role_policy_attachment" "connect_lambda_handler" {
-  role       = aws_iam_role.connect_disconnect_role_handler.name
-  policy_arn = aws_iam_policy.connect_disconnect_handler_policy.arn
+resource "aws_iam_role_policy_attachment" "lambda_handler_attachment" {
+  role       = aws_iam_role.lambda_role_handler.name
+  policy_arn = aws_iam_policy.lambda_handler_policy.arn
+}
+
+resource "aws_iam_role_policy_attachment" "execute_api_message_lambda_handler" {
+  role       = aws_iam_role.lambda_role_handler.name
+  policy_arn = aws_iam_policy.execute_api_message_handler_policy.arn
 }
 
 # Create connect lambda
 resource "aws_lambda_function" "connect_handler" {
   filename         = data.archive_file.connect_handler_zipped_file.output_path
   function_name    = "connect_handler"
-  role             = aws_iam_role.connect_disconnect_role_handler.arn
+  role             = aws_iam_role.lambda_role_handler.arn
   handler          = "connect.handler"
   source_code_hash = data.archive_file.connect_handler_zipped_file.output_base64sha256
 
@@ -119,14 +135,14 @@ resource "aws_lambda_function" "connect_handler" {
     Environment = var.env
   }
 
-  depends_on = [aws_iam_role.connect_disconnect_role_handler, data.archive_file.connect_handler_zipped_file]
+  depends_on = [aws_iam_role.lambda_role_handler, data.archive_file.connect_handler_zipped_file]
 }
 
 # Create disconnect lambda
 resource "aws_lambda_function" "disconnect_handler" {
   filename         = data.archive_file.disconnect_handler_zipped_file.output_path
   function_name    = "disconnect_handler"
-  role             = aws_iam_role.connect_disconnect_role_handler.arn
+  role             = aws_iam_role.lambda_role_handler.arn
   handler          = "disconnect.handler"
   source_code_hash = data.archive_file.disconnect_handler_zipped_file.output_base64sha256
 
@@ -143,15 +159,15 @@ resource "aws_lambda_function" "disconnect_handler" {
     Environment = var.env
   }
 
-  depends_on = [aws_iam_role.connect_disconnect_role_handler, data.archive_file.disconnect_handler_zipped_file]
+  depends_on = [aws_iam_role.lambda_role_handler, data.archive_file.disconnect_handler_zipped_file]
 }
 
 # Create message lambda
 resource "aws_lambda_function" "sendmessage_handler" {
   filename         = data.archive_file.sendmessage_handler_zipped_file.output_path
   function_name    = "sendmessage_handler"
-  role             = aws_iam_role.message_role_handler.arn
-  handler          = "index.handler"
+  role             = aws_iam_role.lambda_role_handler.arn
+  handler          = "sendMessage.handler"
   source_code_hash = data.archive_file.sendmessage_handler_zipped_file.output_base64sha256
 
   runtime = "nodejs24.x"
@@ -167,5 +183,5 @@ resource "aws_lambda_function" "sendmessage_handler" {
     Environment = var.env
   }
 
-  depends_on = [aws_iam_role.message_role_handler, data.archive_file.sendmessage_handler_zipped_file]
+  depends_on = [aws_iam_role.lambda_role_handler, data.archive_file.sendmessage_handler_zipped_file]
 }
