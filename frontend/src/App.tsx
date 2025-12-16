@@ -1,11 +1,19 @@
-import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 
 interface Message {
   id: string;
-  sender: string;
+  sender?: string;
   text: string;
   ts: string;
 }
+
+const URL = import.meta.env.VITE_WS_CLIENT_URL;
 
 function App() {
   const [userName, setUserName] = useState("");
@@ -13,6 +21,8 @@ function App() {
   const [inputName, setInputName] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
+  const [members, setMembers] = useState<string[]>([]);
+  let socket = useRef<undefined | WebSocket>(undefined);
 
   const formatTime = (ts: number) => {
     const d = new Date(ts);
@@ -28,9 +38,63 @@ function App() {
 
     setUserName(trimmed);
     setShowNamePopup(false);
+    setMembers([trimmed]);
+    socket.current = new WebSocket(`${URL}?name=${trimmed}`);
+    socket.current.onopen = () => {
+      console.log("Connected");
+    };
+
+    socket.current.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === "connect") {
+        setMembers((prev) => [...prev, msg.name]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: String(Date.now()),
+            text: msg.members,
+            ts: String(Date.now()),
+          },
+        ]);
+      } else if (msg.type === "disconnect") {
+        setMembers((prev) => prev.filter((e) => e != msg.name));
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: String(Date.now()),
+            text: msg.members,
+            ts: String(Date.now()),
+          },
+        ]);
+      } else if (msg.type === "publicMessage") {
+        console.log(msg);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: msg?.message?.id || String(Date.now()),
+            text: msg.message.text,
+            sender: msg.message.sender,
+            ts: msg?.message?.ts || String(Date.now()),
+          },
+        ]);
+      }
+      // else if (data.publicMessage) {
+      //   setChatRows(oldArray => [...oldArray, <span><b>{data.publicMessage}</b></span>]);
+      // } else if (data.privateMessage) {
+      //   alert(data.privateMessage);
+      // } else if (data.systemMessage) {
+      //   setChatRows(oldArray => [...oldArray, <span><i>{data.systemMessage}</i></span>]);
+      // }
+    };
+
+    socket.current.onclose = () => {
+      console.log("Disconnected");
+    };
   }
 
   function sendMessage() {
+    if (!socket.current || socket.current.readyState !== WebSocket.OPEN) return;
+
     const t = text.trim();
     if (!t) return;
 
@@ -40,6 +104,14 @@ function App() {
       text: t,
       ts: String(Date.now()),
     };
+
+    socket.current.send(
+      JSON.stringify({
+        action: "sendMessage",
+        message: msg,
+      })
+    );
+
     setMessages((m) => [...m, msg]);
     setText("");
   }
@@ -52,10 +124,20 @@ function App() {
   }
 
   useEffect(() => {
-    return () => {};
-  }, []);
-
-  const nameList = ["User1", "User2", "User3", "User4"];
+    if (userName && !socket.current) {
+      socket.current = new WebSocket(`${URL}?name=${userName}`);
+      socket.current.onopen = () => {
+        console.log("Connected again");
+      };
+    }
+    return () => {
+      if (socket.current) {
+        socket.current.onclose = () => {
+          console.log("Disconnected");
+        };
+      }
+    };
+  }, [userName]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-zinc-100 p-4 font-thin">
@@ -92,9 +174,9 @@ function App() {
             <div className="w-full h-[60px] flex items-center justify-center">
               <h1 className="text-green-400 font-semibold">Friends</h1>
             </div>
-            <div className="flex items-center justify-around flex-col overflow-y-auto flex-1">
-              {nameList.map((e) => (
-                <span>{e}</span>
+            <div className="flex items-center gap-y-1 flex-col overflow-y-auto flex-1">
+              {members.map((e) => (
+                <span key={e}>{e}</span>
               ))}
             </div>
           </div>
@@ -122,7 +204,28 @@ function App() {
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-zinc-100 flex flex-col">
               {messages.map((m) => {
+                if (!m.sender) {
+                  return (
+                    <div key={m.id} className="flex justify-center">
+                      <div className="max-w-[90%] px-2 py-1 rounded-[10px] text-sm leading-5 shadow-sm bg-gray text-[#303030] rounded-bl-2xl bg-gray-50">
+                        <div className="wrap-break-word whitespace-pre-wrap">
+                          {m.text}
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <div className="text-[11px] font-bold">
+                            {m.sender}
+                          </div>
+                          <div className="text-[11px] text-gray-500 text-right">
+                            {formatTime(Number(m.ts))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
                 const mine = m.sender === userName;
+
                 return (
                   <div
                     key={m.id}

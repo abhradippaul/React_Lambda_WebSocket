@@ -11,21 +11,28 @@ const {
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 
-const sendToMany = (items, message, senderConnectionId, callbackAPI) => {
-  return items.map(async ({ connectionId }) => {
-    if (connectionId !== senderConnectionId) {
-      try {
-        await callbackAPI.send(
-          new PostToConnectionCommand({
-            ConnectionId: connectionId,
-            Data: message,
-          })
-        );
-      } catch (e) {
-        console.log(e);
-      }
-    }
-  });
+const sendToMany = (
+  items,
+  message,
+  senderConnectionId,
+  callbackAPI,
+  sender
+) => {
+  console.log(items);
+  return items
+    .filter(({ connectionId }) => connectionId !== senderConnectionId)
+    .map(({ connectionId }) =>
+      callbackAPI.send(
+        new PostToConnectionCommand({
+          ConnectionId: connectionId,
+          Data: JSON.stringify({
+            message,
+            type: "publicMessage",
+            sender,
+          }),
+        })
+      )
+    );
 };
 
 const sendToOne = (items, message, senderConnectionId, callbackAPI) => {};
@@ -55,13 +62,17 @@ exports.handler = async function (event) {
   });
 
   const message = JSON.parse(event.body).message;
+  const sender = connections?.Items?.filter(
+    ({ connectionId }) => connectionId === event?.requestContext?.connectionId
+  ).name;
   let sendMessages;
 
   sendMessages = sendToMany(
-    connections.Items,
+    connections?.Items || [],
     message,
-    event.requestContext.connectionId,
-    callbackAPI
+    event?.requestContext?.connectionId,
+    callbackAPI,
+    sender
   );
 
   // const sendMessages = connections.Items.map(async ({ connectionId }) => {

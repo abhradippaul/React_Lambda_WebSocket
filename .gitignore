@@ -1,2 +1,3 @@
 .terraform
 zipped-functions
+*.env

@@ -12,14 +12,24 @@ const {
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 
-const sendToMany = (items, message, senderConnectionId, callbackAPI) => {
-  return items.map(async ({ connectionId }) => {
+const sendToMany = (
+  items,
+  message,
+  senderConnectionId,
+  callbackAPI,
+  newMemberName
+) => {
+  return items.map(async ({ connectionId, name }) => {
     if (connectionId !== senderConnectionId) {
       try {
         await callbackAPI.send(
           new PostToConnectionCommand({
             ConnectionId: connectionId,
-            Data: message,
+            Data: JSON.stringify({
+              members: message,
+              type: "connect",
+              name: newMemberName,
+            }),
           })
         );
       } catch (e) {
@@ -78,7 +88,8 @@ exports.handler = async function (event) {
     connections.Items,
     `${name} has joined the chat`,
     event.requestContext.connectionId,
-    callbackAPI
+    callbackAPI,
+    name
   );
 
   try {
