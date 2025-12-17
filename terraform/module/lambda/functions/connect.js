@@ -17,7 +17,7 @@ const sendToMany = (
   message,
   senderConnectionId,
   callbackAPI,
-  newMemberName
+  newMemberName,
 ) => {
   return items.map(async ({ connectionId, name }) => {
     if (connectionId !== senderConnectionId) {
@@ -29,6 +29,7 @@ const sendToMany = (
               members: message,
               type: "connect",
               name: newMemberName,
+              connectionId: senderConnectionId
             }),
           })
         );

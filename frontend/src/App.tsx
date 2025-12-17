@@ -13,6 +13,11 @@ interface Message {
   ts: string;
 }
 
+interface Members {
+  name: string
+  connectionId:string
+}
+
 const URL = import.meta.env.VITE_WS_CLIENT_URL;
 
 function App() {
@@ -21,7 +26,8 @@ function App() {
   const [inputName, setInputName] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
-  const [members, setMembers] = useState<string[]>([]);
+  const [members, setMembers] = useState<Members[]>([]);
+
   let socket = useRef<undefined | WebSocket>(undefined);
 
   const formatTime = (ts: number) => {
@@ -38,7 +44,10 @@ function App() {
 
     setUserName(trimmed);
     setShowNamePopup(false);
-    setMembers([trimmed]);
+    setMembers([{
+      name: trimmed,
+      connectionId: String(Date.now())
+    }]);
     socket.current = new WebSocket(`${URL}?name=${trimmed}`);
     socket.current.onopen = () => {
       console.log("Connected");
@@ -47,7 +56,10 @@ function App() {
     socket.current.onmessage = (event) => {
       const msg = JSON.parse(event.data);
       if (msg.type === "connect") {
-        setMembers((prev) => [...prev, msg.name]);
+        setMembers((prev) => [...prev, {
+          name: msg.name,
+          connectionId: msg.connectionId
+        }]);
         setMessages((prev) => [
           ...prev,
           {
@@ -78,13 +90,6 @@ function App() {
           },
         ]);
       }
-      // else if (data.publicMessage) {
-      //   setChatRows(oldArray => [...oldArray, <span><b>{data.publicMessage}</b></span>]);
-      // } else if (data.privateMessage) {
-      //   alert(data.privateMessage);
-      // } else if (data.systemMessage) {
-      //   setChatRows(oldArray => [...oldArray, <span><i>{data.systemMessage}</i></span>]);
-      // }
     };
 
     socket.current.onclose = () => {
@@ -141,6 +146,7 @@ function App() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-zinc-100 p-4 font-thin">
+      
       {showNamePopup ? (
         <div className="fixed inset-0 flex items-center justify-center z-40">
           <div className="bg-white rounded-xl shadow-lg max-w-md p-8">
@@ -175,8 +181,8 @@ function App() {
               <h1 className="text-green-400 font-semibold">Friends</h1>
             </div>
             <div className="flex items-center gap-y-1 flex-col overflow-y-auto flex-1">
-              {members.map((e) => (
-                <span key={e}>{e}</span>
+              {members.map(({connectionId,name}) => (
+                <span key={connectionId} className="text-slate-700 font-semibold">{name}</span>
               ))}
             </div>
           </div>
@@ -206,18 +212,13 @@ function App() {
               {messages.map((m) => {
                 if (!m.sender) {
                   return (
-                    <div key={m.id} className="flex justify-center">
-                      <div className="max-w-[90%] px-2 py-1 rounded-[10px] text-sm leading-5 shadow-sm bg-gray text-[#303030] rounded-bl-2xl bg-gray-50">
-                        <div className="wrap-break-word whitespace-pre-wrap">
-                          {m.text}
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <div className="text-[11px] font-bold">
-                            {m.sender}
-                          </div>
-                          <div className="text-[11px] text-gray-500 text-right">
+                    <div key={m.id} className="flex justify-center items-center">
+                      <div className="max-w-[80%] px-4 py-1 rounded-[10px] text-sm leading-5 shadow-sm bg-gray text-[#303030] rounded-bl-2xl bg-gray-50">
+                        <div className="wrap-break-word whitespace-pre-wrap flex justify-center items-center w-full gap-x-2 gap-y-1">
+                          <span className="text-sm font-semibold text-gray-500">{m.text}</span>
+                          <span className="text-sm text-gray-500">
                             {formatTime(Number(m.ts))}
-                          </div>
+                          </span>
                         </div>
                       </div>
                     </div>

@@ -29,6 +29,7 @@ const sendToMany = (
               members: message,
               type: "disconnect",
               name: deletedMember,
+              connectionId: senderConnectionId
             }),
           })
         );

@@ -93,22 +93,8 @@ resource "aws_apigatewayv2_route" "sendmessage_handler_route" {
   target    = "integrations/${aws_apigatewayv2_integration.sendmessage_handler_integration.id}"
 }
 
-# resource "aws_apigatewayv2_deployment" "ws_api_gateway_deployment" {
-#   api_id = aws_apigatewayv2_api.ws_api_gateway.id
-# }
-
 resource "aws_apigatewayv2_stage" "ws_api_gateway_stage" {
-  api_id = aws_apigatewayv2_api.ws_api_gateway.id
-  name   = "production"
-  # deployment_id = aws_apigatewayv2_deployment.ws_api_gateway_deployment.id
+  api_id      = aws_apigatewayv2_api.ws_api_gateway.id
+  name        = "$default"
   auto_deploy = true
 }
-
-# resource "aws_lambda_permission" "allow_apigw" {
-#   count         = length(var.lambda_function_name)
-#   statement_id  = "AllowWebSocketInvoke"
-#   action        = "lambda:InvokeFunction"
-#   function_name = var.lambda_function_name[count.index]
-#   principal     = "apigateway.amazonaws.com"
-#   source_arn    = "${aws_apigatewayv2_api.ws_api_gateway.execution_arn}/*"
-# }
